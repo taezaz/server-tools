@@ -54,6 +54,7 @@ class MassObject(models.Model):
             model_obj = self.env['ir.model']
             # Empty recs
             model_ids = model_obj
+            model_ids += mass_object.model_id
             for model in mass_object.model_id._model._inherits.keys():
                 model_ids += model_obj.search([('model', '=', model)])
             mass_object.model_ids = model_ids
