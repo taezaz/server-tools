@@ -8,21 +8,10 @@
             <field name="arch" type="xml">
                 <form string="Object">
                     <sheet>
-                        <div class="oe_title">
-                            <label for="name" class="oe_edit_only" />
-                            <h1>
-                                <field name="name" required="1" />
-                            </h1>
-                            <group>
-                                <field name="model_id" required="1"
-                                    on_change="onchange_model_id(model_id)" />
-                                <field name="model_ids" invisible="1" />
-                            </group>
-                        </div>
-                        <div class="oe_right oe_button_box" name="buttons">
+                        <div class="oe_button_box" name="button_box">
                             <field name="ref_ir_act_window"
                                 invisible="1" />
-                            <button class="oe_inline oe_stat_button"
+                            <button
                                 name="create_action" type="object"
                                 attrs="{'invisible':[('ref_ir_act_window','!=',False)]}"
                                 icon="fa-plus"
@@ -30,14 +19,23 @@
                                 <div>Add<br />Sidebar Button</div>
                             </button>
                             <button name="unlink_action" type="object"
-                                class="oe_stat_button" icon="fa-minus"
+                                icon="fa-minus"
                                 attrs="{'invisible':[('ref_ir_act_window','=',False)]}"
                                 help="Remove the contextual action to use this template on related documents"
                                 widget="statinfo">
                                 <div>Remove<br />Sidebar Button</div>
                             </button>
                         </div>
-
+                        <div class="oe_title">
+                            <label for="name" class="oe_edit_only" />
+                            <h1>
+                                <field name="name" required="1" />
+                            </h1>
+                            <group>
+                                <field name="model_id" required="1"/>
+                                <field name="model_ids" invisible="1" />
+                            </group>
+                        </div>
                         <notebook colspan="4">
                             <page string="Fields">
                                 <field name="field_ids" colspan="4"

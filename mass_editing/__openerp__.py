@@ -43,7 +43,7 @@
     'depends': ['base'],
     'data': [
         # "security/ir.model.access.csv",
-        # 'views/mass_editing_view.xml',
+        'views/mass_editing_view.xml',
     ],
     'installable': True,
     'application': True,

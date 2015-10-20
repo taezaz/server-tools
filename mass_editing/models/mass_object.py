@@ -20,119 +20,95 @@
 #
 ##############################################################################
 
-from openerp import SUPERUSER_ID
-from openerp.osv import orm, fields
-from openerp.tools.translate import _
+from openerp import models, api, fields, exceptions, _
 
 
-class MassObject(orm.Model):
+class MassObject(models.Model):
     _name = "mass.object"
 
-    _columns = {
-        'name': fields.char("Name", size=64, required=True, select=1),
-        'model_id': fields.many2one(
-            'ir.model', 'Model', required=True, select=1),
-        'field_ids': fields.many2many(
-            'ir.model.fields', 'mass_field_rel', 'mass_id', 'field_id',
-            'Fields'),
-        'ref_ir_act_window': fields.many2one(
-            'ir.actions.act_window', 'Sidebar Action', readonly=True,
-            help="Sidebar action to make this template available on records \
-                 of the related document model"),
-        'ref_ir_value': fields.many2one(
-            'ir.values', 'Sidebar Button', readonly=True,
-            help="Sidebar button to open the sidebar action"),
-        'model_ids': fields.many2many('ir.model', string='Model List')
-    }
+    name = fields.Char("Name", size=64, required=True, select=1)
+    model_id = fields.Many2one(
+        'ir.model', 'Model', required=True, select=1)
+    field_ids = fields.Many2many(
+        'ir.model.fields', 'mass_field_rel', 'mass_id', 'field_id',
+        'Fields')
+    ref_ir_act_window = fields.Many2one(
+        'ir.actions.act_window', 'Sidebar Action', readonly=True,
+        help="Sidebar action to make this template available on records \
+                of the related document model")
+    ref_ir_value = fields.Many2one(
+        'ir.values', 'Sidebar Button', readonly=True,
+        help="Sidebar button to open the sidebar action")
+    model_ids = fields.Many2many('ir.model', string='Model List')
 
     _sql_constraints = [
-        ('name_uniq', 'unique (name)', _('Name must be unique!')),
+        ('name_uniq', 'unique(name)', _('Name must be unique!'))
     ]
 
-    def onchange_model_id(self, cr, uid, ids, model_id, context=None):
-        if context is None:
-            context = {}
-        if not model_id:
-            return {'value': {'model_ids': [(6, 0, [])]}}
-        model_ids = [model_id]
-        model_obj = self.pool['ir.model']
-        active_model_obj = self.pool.get(model_obj.browse(
-            cr, uid, model_id).model)
-        if active_model_obj._inherits:
-            for key, val in active_model_obj._inherits.items():
-                found_model_ids = model_obj.search(
-                    cr, uid, [('model', '=', key)], context=context)
-                model_ids += found_model_ids
-        return {'value': {'model_ids': [(6, 0, model_ids)]}}
+    @api.multi
+    @api.onchange('model_id')
+    def onchange_model_id(self):
+        for mass_object in self:
+            if not mass_object.model_id:
+                continue
+            model_obj = self.env['ir.model']
+            # Empty recs
+            model_ids = model_obj
+            for model in mass_object.model_id._model._inherits.keys():
+                model_ids += model_obj.search([('model', '=', model)])
+            mass_object.model_ids = model_ids
 
-    def create_action(self, cr, uid, ids, context=None):
-        vals = {}
-        action_obj = self.pool['ir.actions.act_window']
-        ir_values_obj = self.pool['ir.values']
-        for data in self.browse(cr, uid, ids, context=context):
-            src_obj = data.model_id.model
-            button_name = _('Mass Editing (%s)') % data.name
-            vals['ref_ir_act_window'] = action_obj.create(
-                cr, SUPERUSER_ID,
-                {
-                    'name': button_name,
-                    'type': 'ir.actions.act_window',
-                    'res_model': 'mass.editing.wizard',
-                    'src_model': src_obj,
-                    'view_type': 'form',
-                    'context': "{'mass_editing_object' : %d}" % (data.id),
-                    'view_mode': 'form,tree',
-                    'target': 'new',
-                    'auto_refresh': 1,
-                },
-                context)
-            vals['ref_ir_value'] = ir_values_obj.create(
-                cr, SUPERUSER_ID,
-                {
-                    'name': button_name,
-                    'model': src_obj,
-                    'key2': 'client_action_multi',
-                    'value': (
-                        "ir.actions.act_window," +
-                        str(vals['ref_ir_act_window'])),
-                    'object': True,
-                },
-                context)
-        self.write(
-            cr, uid, ids,
-            {
-                'ref_ir_act_window': vals.get('ref_ir_act_window', False),
-                'ref_ir_value': vals.get('ref_ir_value', False),
-            },
-            context)
+    @api.multi
+    def create_action(self):
+        for mass_object in self:
+            button_name = _('Mass Editing (%s)' % mass_object.name)
+            src_obj = mass_object.model_id.model
+            action = self.env['ir.actions.act_window'].create({
+                'name': button_name,
+                'type': 'ir.actions.act_window',
+                'res_model': 'mass.editing.wizard',
+                'src_model': src_obj,
+                'view_type': 'form',
+                'context': "{'mass_editing_object' : %d}" % (mass_object.id),
+                'view_mode': 'form,tree',
+                'target': 'new',
+                'auto_refresh': 1,
+            })
+            value = self.env['ir.values'].create({
+                'name': button_name,
+                'model': src_obj,
+                'key2': 'client_action_multi',
+                'value': "ir.actions.act_window,%s" % action.id,
+            })
+            mass_object.write({
+                'ref_ir_act_window': action.id,
+                'ref_ir_value': value.id,
+            })
         return True
 
-    def unlink_action(self, cr, uid, ids, context=None):
-        for template in self.browse(cr, uid, ids, context=context):
+    @api.multi
+    def unlink_action(self):
+        for mass_object in self:
             try:
-                if template.ref_ir_act_window:
-                    act_window_obj = self.pool['ir.actions.act_window']
-                    act_window_obj.unlink(
-                        cr, SUPERUSER_ID, [template.ref_ir_act_window.id],
-                        context=context)
-                if template.ref_ir_value:
-                    ir_values_obj = self.pool['ir.values']
-                    ir_values_obj.unlink(
-                        cr, SUPERUSER_ID, template.ref_ir_value.id,
-                        context=context)
+                if mass_object.ref_ir_act_window:
+                    mass_object.sudo().ref_ir_act_window.unlink()
+                    pass
+                if mass_object.ref_ir_value:
+                    mass_object.sudo().ref_ir_value.unlink()
             except:
-                raise orm.except_orm(
+                raise exceptions.UserError(
                     _("Warning"),
                     _("Deletion of the action record failed."))
         return True
 
-    def unlink(self, cr, uid, ids, context=None):
-        self.unlink_action(cr, uid, ids, context=context)
-        return super(MassObject, self).unlink(cr, uid, ids, context=context)
+    @api.multi
+    def unlink(self):
+        self.unlink_action()
+        return super(MassObject, self).unlink()
 
-    def copy(self, cr, uid, record_id, default=None, context=None):
+    @api.multi
+    def copy(self, default=None, context=None):
         if default is None:
             default = {}
         default.update({'name': '', 'field_ids': []})
-        return super(MassObject, self).copy(
-            cr, uid, record_id, default, context=context)
+        return super(MassObject, self).copy(default, context=context)
