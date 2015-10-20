@@ -37,7 +37,7 @@
                         </div>
                         <notebook colspan="4">
                             <page string="Fields">
-                                <field name="model_ids"/>
+                                <field name="model_ids" invisible="True"/>
                                 <!-- TODO Fix javascript bug -->
                                 <field name="field_ids" colspan="4"
                                   nolabel="1"
