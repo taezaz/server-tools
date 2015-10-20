@@ -20,5 +20,5 @@
 #
 ##############################################################################
 
-from . import ir_model_fields
-from . import mass_object
+# from . import ir_model_fields
+# from . import mass_object
