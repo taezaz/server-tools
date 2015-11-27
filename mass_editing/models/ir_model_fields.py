@@ -27,7 +27,7 @@ class IrModelFields(models.Model):
     _inherit = 'ir.model.fields'
 
     @api.model
-    def search(self, args, offset=0, limit=1, order=None, count=False):
+    def search(self, args, offset=0, limit=None, order=None, count=False):
         model_domain = []
         operator_blacklist = ['ilike']
         for domain in args:
